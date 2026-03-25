@@ -68,15 +68,17 @@
 
         // --- FIREBASE (Tự động hóa) ---
         const appId = "quiz-workplace-v4";
-        let db = null;
-        try {
-            const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-            if (config) { 
-                firebase.initializeApp(config); 
-                db = firebase.firestore(); 
-                firebase.auth().signInAnonymously();
-            }
-        } catch(e) {}
+         let db = null;
+try {
+    if (typeof firebase !== "undefined" && typeof __firebase_config !== "undefined") {
+        const config = JSON.parse(__firebase_config);
+        firebase.initializeApp(config);
+        db = firebase.firestore();
+        firebase.auth().signInAnonymously().catch(() => {});
+    }
+} catch (e) {
+    console.log("Firebase disabled:", e);
+}
 
         function App() {
             const [gameState, setGameState] = useState('lobby'); 
@@ -99,12 +101,20 @@
             const audioRef = useRef(null);
             const timerRef = useRef(null);
 
-            useEffect(() => {
-                if (!db) return;
-                return db.collection('leaderboard').onSnapshot(snap => {
-                    setAllPlayers(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.score - a.score));
-                });
-            }, []);
+            ect(() => {
+               useEffect(() => {
+    if (!db) return;
+    try {
+        return db.collection('leaderboard').onSnapshot(snap => {
+            setAllPlayers(
+                snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                .sort((a,b) => b.score - a.score)
+            );
+        });
+    } catch (e) {
+        console.log("Firestore error:", e);
+    }
+}, []);
 
             useEffect(() => {
                 if (gameState === 'playing' && !isAnswering) {
@@ -212,7 +222,12 @@
                                     onChange={e => setTeamName(e.target.value)} 
                                 />
                                 <button 
-                                    onClick={() => { if(teamName.trim()){ setGameState('playing'); audioRef.current?.play(); } }} 
+                                    onClick={() => { 
+    if(teamName.trim()){ 
+        setGameState('playing'); 
+        audioRef.current?.play().catch(() => {});
+    } 
+}}
                                     className="w-full bg-indigo-600 p-6 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/30 transform hover:scale-[1.02]"
                                 >
                                     BẮT ĐẦU CHƠI
@@ -323,6 +338,9 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
+        window.onerror = function(message, source, lineno, colno, error) {
+    console.log("Global Error:", message, source, lineno);
+};
         root.render(<App />);
     </script>
 </body>
