@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Quiz Pro - Group 16 Elite</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/lucide-static@0.321.0/font/lucide.min.css" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #050505; color: white; overflow: hidden; }
+        .bg-glow { background: radial-gradient(circle at 50% 50%, rgba(79, 70, 229, 0.1) 0%, transparent 80%); }
+        .timer-bar { transition: width 1s linear, background-color 0.3s; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-glow">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- CẤU HÌNH ---
+        const ADMIN_PIN = "7777"; // MẬT MÃ ADMIN CỦA BẠN
+
+        const quizData = [
+            { question: "1. In a formal meeting, you should ______ your hand before speaking.", options: { A: "raise", B: "lift", C: "put", D: "rise" }, correct: "A" },
+            { question: "2. Could you please ______ me the minutes of the meeting?", options: { A: "send", B: "give", C: "forward", D: "All are correct" }, correct: "D" },
+            { question: "3. 'To touch base' means to ______.", options: { A: "hit the floor", B: "briefly connect", C: "play baseball", D: "quit the job" }, correct: "B" },
+            { question: "4. An 'ASAP' request means it is ______.", options: { A: "not important", B: "for next week", C: "very urgent", D: "optional" }, correct: "C" },
+            { question: "5. Which one is a professional closing for an email?", options: { A: "See ya!", B: "Best regards,", C: "Whatever.", D: "Sent from iPhone" }, correct: "B" },
+            { question: "6. I'm afraid I have a ______ schedule today, can we meet tomorrow?", options: { A: "tight", B: "loose", C: "thin", D: "fast" }, correct: "A" },
+            { question: "7. Let's ______ a meeting for next Monday at 10 AM.", options: { A: "make", B: "schedule", C: "do", D: "keep" }, correct: "B" },
+            { question: "8. Could you please ______ me in on what happened at the meeting?", options: { A: "fill", B: "tell", C: "give", D: "put" }, correct: "A" },
+            { question: "9. We need to ______ a solution to this problem quickly.", options: { A: "find", B: "look", C: "reach", D: "come" }, correct: "A" },
+            { question: "10. I would like to ______ an appointment with the manager.", options: { A: "do", B: "take", C: "make", D: "get" }, correct: "C" },
+            { question: "11. To 'circle back' means to ______ a topic later.", options: { A: "forget", B: "return to", C: "draw", D: "avoid" }, correct: "B" },
+            { question: "12. Sorry for the delay, I've been ______ with work lately.", options: { A: "swamped", B: "flooded", C: "filled", D: "busyed" }, correct: "A" },
+            { question: "13. Can you ______ this document for any errors?", options: { A: "proofread", B: "readproof", C: "look over", D: "A and C are correct" }, correct: "D" },
+            { question: "14. A 'deadline' is the ______ time something must be finished.", options: { A: "first", B: "latest", C: "best", D: "middle" }, correct: "B" },
+            { question: "15. We are currently ______ of office supplies.", options: { A: "short", B: "low", C: "out", D: "missing" }, correct: "C" },
+            { question: "16. To 'think outside the box' means to think ______.", options: { A: "inside", B: "creatively", C: "loudly", D: "slowly" }, correct: "B" },
+            { question: "17. Could you please ______ the attachment in the email?", options: { A: "check", B: "look", C: "open", D: "find" }, correct: "A" },
+            { question: "18. I'll get ______ to you as soon as I have an answer.", options: { A: "back", B: "on", C: "at", D: "with" }, correct: "A" },
+            { question: "19. The project is finally ______ track.", options: { A: "on", B: "in", C: "at", D: "to" }, correct: "A" },
+            { question: "20. We need to ______ the pros and cons of this decision.", options: { A: "measure", B: "weigh", C: "count", D: "see" }, correct: "B" }
+        ];
+
+        const SHOP_ITEMS = [
+            { id: 'remove2', name: '50/50', price: 20, icon: 'lucide-scissors', desc: 'Xóa 2 đáp án sai' },
+            { id: 'double', name: 'X2 Point', price: 30, icon: 'lucide-zap', desc: 'Nhân đôi điểm câu tới' },
+            { id: 'shield', name: 'Khiên', price: 25, icon: 'lucide-shield-check', desc: 'Sai không trừ điểm' }
+        ];
+
+        // --- FIREBASE (Tự động hóa) ---
+        const appId = "quiz-workplace-v4";
+        let db = null;
+        try {
+            const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            if (config) { 
+                firebase.initializeApp(config); 
+                db = firebase.firestore(); 
+                firebase.auth().signInAnonymously();
+            }
+        } catch(e) {}
+
+        function App() {
+            const [gameState, setGameState] = useState('lobby'); 
+            const [teamName, setTeamName] = useState('');
+            const [currentIdx, setCurrentIdx] = useState(0);
+            const [score, setScore] = useState(0);
+            const [combo, setCombo] = useState(0);
+            const [timeLeft, setTimeLeft] = useState(15);
+            const [inventory, setInventory] = useState({ remove2: 0, double: 0, shield: 0 });
+            const [activeItems, setActiveItems] = useState({ remove2: false, double: false, shield: false });
+            const [hiddenOptions, setHiddenOptions] = useState([]);
+            const [isAnswering, setIsAnswering] = useState(false);
+            const [selected, setSelected] = useState(null);
+            const [isWrong, setIsWrong] = useState(false);
+            const [isMuted, setIsMuted] = useState(false);
+            const [allPlayers, setAllPlayers] = useState([]);
+            const [showAdminLogin, setShowAdminLogin] = useState(false);
+            const [pinInput, setPinInput] = useState("");
+
+            const audioRef = useRef(null);
+            const timerRef = useRef(null);
+
+            useEffect(() => {
+                if (!db) return;
+                return db.collection('leaderboard').onSnapshot(snap => {
+                    setAllPlayers(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.score - a.score));
+                });
+            }, []);
+
+            useEffect(() => {
+                if (gameState === 'playing' && !isAnswering) {
+                    if (timeLeft > 0) timerRef.current = setTimeout(() => setTimeLeft(t => t - 1), 1000);
+                    else handleAnswer(null);
+                }
+                return () => clearTimeout(timerRef.current);
+            }, [timeLeft, gameState, isAnswering]);
+
+            const updateProgress = (s, idx, finished = false) => {
+                if (db && teamName) {
+                    db.collection('leaderboard').doc(teamName).set({
+                        teamName, score: s, currentStep: idx + 1, isFinished: finished, updatedAt: Date.now()
+                    }, { merge: true });
+                }
+            };
+
+            const handleAnswer = (key) => {
+                if (isAnswering) return;
+                setIsAnswering(true);
+                setSelected(key);
+                const isCorrect = key === quizData[currentIdx].correct;
+                let newScore = score;
+                if (isCorrect) {
+                    newScore += (10 * (activeItems.double ? 2 : 1)) + (combo * 2);
+                    setCombo(c => c + 1);
+                } else {
+                    if (!activeItems.shield) newScore = Math.max(0, score - 5);
+                    setCombo(0); setIsWrong(true);
+                }
+                setScore(newScore);
+                updateProgress(newScore, currentIdx, currentIdx === quizData.length - 1);
+                setTimeout(() => {
+                    setIsAnswering(false); setSelected(null); setIsWrong(false); setHiddenOptions([]);
+                    setActiveItems({ remove2: false, double: false, shield: false });
+                    if (currentIdx === quizData.length - 1) setGameState('end');
+                    else setGameState('shop');
+                }, 1200);
+            };
+
+            const handleAdminAccess = () => {
+                if (pinInput === ADMIN_PIN) {
+                    setGameState('admin');
+                    setShowAdminLogin(false);
+                    setPinInput("");
+                } else {
+                    alert("Sai mật mã!");
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center p-4">
+                    <audio ref={audioRef} src="./nhac_game.mp3" loop />
+                    
+                    {/* TOP HEADER CONTROLS */}
+                    <div className="fixed top-6 left-6 right-6 flex justify-between items-center z-50">
+                        <button 
+                            onClick={() => setShowAdminLogin(true)} 
+                            className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center opacity-60 hover:opacity-100 hover:bg-indigo-600 transition-all shadow-lg"
+                            title="Admin Login"
+                        >
+                            <i className="lucide-shield-check text-indigo-400"></i>
+                        </button>
+                        <button onClick={() => { setIsMuted(!isMuted); if(audioRef.current) audioRef.current.muted = !isMuted; }} className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-indigo-600 transition-all">
+                            <i className={isMuted ? "lucide-volume-x" : "lucide-volume-2"}></i>
+                        </button>
+                    </div>
+
+                    {/* PIN MODAL */}
+                    {showAdminLogin && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md">
+                            <div className="bg-neutral-900 border border-white/10 p-8 rounded-[2.5rem] w-full max-w-xs text-center fade-in">
+                                <h3 className="font-black text-indigo-500 mb-6 uppercase tracking-widest">Mật mã Admin</h3>
+                                <input 
+                                    type="password" 
+                                    value={pinInput} 
+                                    onChange={e => setPinInput(e.target.value)} 
+                                    className="w-full bg-black border border-white/10 p-4 rounded-xl mb-6 text-center tracking-[1em] text-2xl outline-none focus:border-indigo-500" 
+                                    placeholder="••••"
+                                    autoFocus 
+                                />
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowAdminLogin(false)} className="flex-1 bg-white/5 p-4 rounded-xl font-bold hover:bg-white/10 transition-all">HỦY</button>
+                                    <button onClick={handleAdminAccess} className="flex-1 bg-indigo-600 p-4 rounded-xl font-bold shadow-lg shadow-indigo-600/20">OK</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* LOBBY (Màn hình chính) */}
+                    {gameState === 'lobby' && (
+                        <div className="w-full max-w-md bg-neutral-900/80 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 shadow-2xl text-center fade-in">
+                            <div className="w-20 h-20 bg-indigo-600/20 border border-indigo-500 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-lg rotate-3">
+                                <i className="lucide-graduation-cap text-4xl text-indigo-500"></i>
+                            </div>
+                            <h1 className="text-5xl font-black mb-2 italic tracking-tighter">QUIZ<span className="text-indigo-500">PRO</span></h1>
+                            <p className="text-neutral-500 font-bold text-[10px] uppercase tracking-[0.4em] mb-12">English for Workplace • Group 16</p>
+                            
+                            <div className="space-y-4">
+                                <label className="text-xs font-black text-indigo-400 block text-left ml-2 uppercase tracking-widest">Tên đội của bạn:</label>
+                                <input 
+                                    className="w-full bg-black border border-white/10 p-5 rounded-2xl mb-8 outline-none focus:border-indigo-500 text-center font-bold text-xl uppercase placeholder:opacity-20" 
+                                    placeholder="TEAM NAME..." 
+                                    value={teamName} 
+                                    onChange={e => setTeamName(e.target.value)} 
+                                />
+                                <button 
+                                    onClick={() => { if(teamName.trim()){ setGameState('playing'); audioRef.current?.play(); } }} 
+                                    className="w-full bg-indigo-600 p-6 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/30 transform hover:scale-[1.02]"
+                                >
+                                    BẮT ĐẦU CHƠI
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* PLAYING */}
+                    {gameState === 'playing' && (
+                        <div className={`w-full max-w-2xl bg-neutral-900 border border-white/10 p-8 rounded-[3rem] shadow-2xl fade-in ${isWrong ? 'animate-shake' : ''}`}>
+                            <div className="flex justify-between items-center mb-6 px-2">
+                                <span className="bg-black/50 px-4 py-2 rounded-xl text-indigo-400 font-black text-xs border border-white/5 uppercase tracking-tighter">Câu {currentIdx + 1}/20</span>
+                                <div className="flex gap-2">
+                                    {Object.entries(inventory).map(([id, count]) => (
+                                        <button key={id} onClick={() => {
+                                            if (inventory[id] > 0 && !activeItems[id]) {
+                                                setInventory(p => ({ ...p, [id]: p[id] - 1 }));
+                                                setActiveItems(p => ({ ...p, [id]: true }));
+                                                if (id === 'remove2') {
+                                                    const correct = quizData[currentIdx].correct;
+                                                    const wrongs = Object.keys(quizData[currentIdx].options).filter(k => k !== correct);
+                                                    setHiddenOptions(wrongs.sort(() => 0.5 - Math.random()).slice(0, 2));
+                                                }
+                                            }
+                                        }} disabled={count === 0 || activeItems[id]} className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-all ${activeItems[id] ? 'bg-indigo-500 border-indigo-400 shadow-lg shadow-indigo-500/40' : 'bg-black/40 border-white/10 opacity-30'}`}>
+                                            <i className={`${SHOP_ITEMS.find(i => i.id === id).icon} text-sm`}></i>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="w-full bg-white/5 h-2 rounded-full mb-10 overflow-hidden"><div className="h-full timer-bar" style={{ width: `${(timeLeft/15)*100}%`, backgroundColor: timeLeft < 5 ? '#ef4444' : '#6366f1' }}></div></div>
+                            <h2 className="text-2xl font-extrabold text-center mb-10 leading-relaxed px-4">{quizData[currentIdx].question}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {Object.entries(quizData[currentIdx].options).map(([key, val]) => (
+                                    <button key={key} disabled={isAnswering || hiddenOptions.includes(key)} onClick={() => handleAnswer(key)} className={`p-6 rounded-2xl border-2 text-left font-bold transition-all flex items-center gap-4 ${hiddenOptions.includes(key) ? 'opacity-0 pointer-events-none' : ''} ${selected === key ? (key === quizData[currentIdx].correct ? 'bg-green-500/20 border-green-500' : 'bg-red-500/20 border-red-500') : 'bg-black/40 border-white/5 hover:border-indigo-500/50'}`}>
+                                        <span className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center text-indigo-400 text-sm">{key}</span> {val}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SHOP */}
+                    {gameState === 'shop' && (
+                        <div className="w-full max-w-md bg-neutral-900 p-8 rounded-[3rem] border border-white/10 shadow-2xl fade-in text-center">
+                            <h2 className="text-3xl font-black italic uppercase mb-2">TIẾP TẾ</h2>
+                            <div className="text-indigo-400 font-black text-2xl mb-8">{score} <span className="text-xs">PTS</span></div>
+                            <div className="space-y-3 mb-10">
+                                {SHOP_ITEMS.map(item => (
+                                    <button key={item.id} onClick={() => { if(score >= item.price){ setScore(s => s - item.price); setInventory(p => ({...p, [item.id]: p[item.id] + 1})); } }} disabled={score < item.price} className="w-full bg-black/40 p-5 rounded-2xl border border-white/5 flex items-center justify-between hover:border-indigo-500/30 transition-all disabled:opacity-20 group">
+                                        <div className="flex items-center gap-4"><div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform"><i className={item.icon}></i></div><div className="text-left"><p className="font-bold text-sm leading-none">{item.name}</p></div></div>
+                                        <div className="font-black text-xs bg-white/5 px-3 py-2 rounded-lg border border-white/5">{item.price} PTS</div>
+                                    </button>
+                                ))}
+                            </div>
+                            <button onClick={() => { setCurrentIdx(i => i + 1); setTimeLeft(15); setGameState('playing'); }} className="w-full bg-white text-black p-6 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all shadow-xl shadow-white/5">CÂU TIẾP THEO <i className="lucide-arrow-right inline-block ml-1"></i></button>
+                        </div>
+                    )}
+
+                    {/* END SCREEN */}
+                    {gameState === 'end' && (
+                        <div className="w-full max-w-md flex flex-col gap-6 fade-in text-center">
+                            <div className="bg-neutral-900 border border-indigo-500/30 p-10 rounded-[3rem] shadow-2xl">
+                                <i className="lucide-trophy text-yellow-500 w-16 h-16 mx-auto mb-6"></i>
+                                <h2 className="text-4xl font-black italic mb-2 uppercase">HOÀN THÀNH</h2>
+                                <p className="text-neutral-500 font-bold text-xs uppercase tracking-widest mb-8">Team {teamName}</p>
+                                <div className="bg-black/50 p-6 rounded-3xl border border-white/5 mb-8">
+                                    <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mb-1">TỔNG ĐIỂM</p>
+                                    <div className="text-7xl font-black text-indigo-400 tracking-tighter">{score}</div>
+                                </div>
+                                <button onClick={() => location.reload()} className="w-full bg-indigo-600 p-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20">CHƠI LẠI</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ADMIN VIEW */}
+                    {gameState === 'admin' && (
+                        <div className="w-full max-w-4xl bg-neutral-900 border border-white/10 p-10 rounded-[3rem] shadow-2xl fade-in max-h-[85vh] flex flex-col relative">
+                            <div className="flex justify-between items-center mb-10">
+                                <div><h2 className="text-3xl font-black italic uppercase text-indigo-500">ADMIN DASHBOARD</h2><p className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest">Giám sát tiến độ 20 câu hỏi</p></div>
+                                <button onClick={() => setGameState('lobby')} className="px-6 py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl font-black uppercase text-xs hover:bg-red-500 hover:text-white transition-all">THOÁT ADMIN</button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
+                                <table className="w-full text-left">
+                                    <thead><tr className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest border-b border-white/5"><th className="pb-4">Hạng</th><th className="pb-4">Tên Team</th><th className="pb-4 text-center">Tiến độ</th><th className="pb-4 text-right">Điểm</th></tr></thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {allPlayers.map((p, idx) => (
+                                            <tr key={idx} className="group">
+                                                <td className="py-5 font-black text-xs text-neutral-600">#{idx + 1}</td>
+                                                <td className="py-5 font-bold uppercase text-sm">{p.teamName}</td>
+                                                <td className="py-5 text-center">
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        <div className="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${(p.currentStep/20)*100}%` }}></div></div>
+                                                        <span className="text-[10px] font-black">{p.currentStep}/20</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-5 text-right font-black text-indigo-400 text-xl">{p.score}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
